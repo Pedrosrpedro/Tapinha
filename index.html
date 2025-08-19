@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo de Tapa na Mão (Visual)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f2f5;
+            color: #333;
+            text-align: center;
+        }
+        #game-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 450px;
+        }
+        h1 {
+            margin-top: 0;
+            color: #444;
+        }
+        #game-visual-container {
+            width: 100%;
+            height: 200px; /* Altura fixa para evitar pulos de layout */
+            margin: 20px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #game-visual {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        #message-box {
+            font-size: 1.5em;
+            font-weight: bold;
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+            color: #555;
+        }
+        .hit { color: #dc3545 !important; }
+        .fake { color: #ffc107 !important; }
+        .success { color: #28a745 !important; }
+        
+        button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            border-radius: 8px;
+            margin-top: 10px;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        #dodge-button {
+            background-color: #007bff;
+            color: white;
+        }
+        #dodge-button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        #dodge-button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+        #start-button {
+            background-color: #28a745;
+            color: white;
+        }
+        #start-button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <h1>Tapa na Mão</h1>
+        <div id="game-visual-container">
+            <img id="game-visual" src="" alt="Visual do jogo">
+        </div>
+        <div id="message-box">Clique para começar!</div>
+        <button id="dodge-button" disabled>Desviar!</button>
+        <button id="start-button">Começar Jogo</button>
+    </div>
+
+    <script>
+        // --- IMAGENS EM SVG (codificadas em Base64 para embutir) ---
+        // Isso evita a necessidade de ter arquivos de imagem separados.
+        const images = {
+            idle: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMTAwIj48cGF0aCBkPSJNNjAgNzBoODBjNSA1IDUgMTUgMCAyMGwtNDAgNDBjLTUgNS0xNSA1LTIwIDBsLTQwLTQwYy01LTUtNS0xNSAwLTIweiIgZmlsbD0iI2FkZDhmNiIvPjxwYXRoIGQ9Ik02MCAzMGg4MGM1LTUgNS0xNSAwLTIwbC00MC00MGMtNS01LTE1LTUtMjAgMGwtNDAtNDBjLTUtNS01LTE1IDAtMjB6IiBmaWxsPSIjZmY5Yzk5IiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMiIvPjwvc3ZnPg==',
+            fake: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMTAwIj48cGF0aCBkPSJNNjAgNzBoODBjNSA1IDUgMTUgMCAyMGwtNDAgNDBjLTUgNS0xNSA1LTIwIDBsLTQwLTQwYy01LTUtNS0xNSAwLTIweiIgZmlsbD0iI2FkZDhmNiIvPjxwYXRoIGQ9Ik01NSA0MGg5MGM1LTUgNS0xNSAwLTIwbC00NS00NWMtNS01LTE1LTUtMjAgMGwtNDUgNDVjLTUtNS01LTE1IDAtMjB6IiBmaWxsPSIjZmY5Yzk5IiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMiI+PGFuaW1hdGUgYXR0cmlidXRlTmFtZT0idHJhbnNmb3JtIiB0eXBlPSJyb3RhdGUiIGZyb209Ii0yIiB0bz0iMiIgZHVyPSIwLjFzIiByZXBlYXRDb3VudD0iaW5kZWZpbml0ZSIgY2FsY01vZGU9InNwbGluZSIvPjwvc3ZnPg==',
+            attack: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMTAwIj48cGF0aCBkPSJNNjAgNzBoODBjNSA1IDUgMTUgMCAyMGwtNDAgNDBjLTUgNS0xNSA1LTIwIDBsLTQwLTQwYy01LTUtNS0xNSAwLTIweiIgZmlsbD0iI2FkZDhmNiIvPjxwYXRoIGQ9Ik01MCA2MGg5MGM2LTYgNi0xNiAwLTIybC00NS00NWMtNi02LTE2LTYtMjIgMGwtNDUgNDVjLTYgNi02IDE2IDAgMjJ6IiBmaWxsPSIjZmY5Yzk5IiBzdHJva2U9IiMwMDAiIHN0cm9rZS13aWR0aD0iMyIvPjwvc3ZnPg==',
+            hit: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMTAwIj48cGF0aCBkPSJNNTAgNjBoOTBjNi02IDYtMTYgMC0yMmwtNDUtNDVjLTYtNi0xNi02LTIyIDBsLTQ1IDQ1Yy02IDYtNiAxNiAwIDIyeiIgZmlsbD0iI2FkZDhmNiIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiLz48cGF0aCBkPSJNNTAgNjBoOTBjNi02IDYtMTYgMC0yMmwtNDUtNDVjLTYtNi0xNi02LTIyIDBsLTQ1IDQ1Yy02IDYtNiAxNiAwIDIyeiIgZmlsbD0iI2ZmOWM5OSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjMiLz48cGF0aCBkPSJNMTMwIDMwbDIwIDIwTTE1MCA1MGwyMC0yME0xNzAgMzBsLTIwIDIwTTE1MCAzMGwyMCAyME0zMCAzMGwyMCAyME01MCA1MGwyMC0yME03MCAzMGwtMjAgMjBNNTAgMzBsMjAgMjAiIHN0cm9rZT0iI2YwMCIgc3Ryb2tlLXdpZHRoPSIzIi8+PC9zdmc+',
+            dodge: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMTAwIj48cGF0aCBkPSJNNTAgNjBoOTBjNi02IDYtMTYgMC0yMmwtNDUtNDVjLTYtNi0xNi02LTIyIDBsLTQ1IDQ1Yy02IDYtNiAxNiAwIDIyeiIgZmlsbD0iI2ZmOWM5OSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjMiLz48dGV4dCB4PSI5NSIgeT0iNTUiIGZvbnQtc2l6ZT0iMTZweCIgZm9udC13ZWlnaHQ9ImJvbGQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM1NTUiPkVycmlvdTwvdGV4dD48L3N2Zz4='
+        };
+
+        // Elementos do DOM
+        const startButton = document.getElementById('start-button');
+        const dodgeButton = document.getElementById('dodge-button');
+        const messageBox = document.getElementById('message-box');
+        const gameVisual = document.getElementById('game-visual');
+
+        // Estado do Jogo
+        let gameActive = false;
+        let isOpponentAttacking = false;
+        let isOpponentFaking = false;
+        let freeSlapIncoming = false;
+        let opponentActionTimeout;
+
+        // Inicia com a imagem padrão
+        gameVisual.src = images.idle;
+
+        // Event Listeners
+        startButton.addEventListener('click', startGame);
+        dodgeButton.addEventListener('click', playerDodge);
+
+        function updateGameState(imageKey, text, textClass = '') {
+            gameVisual.src = images[imageKey];
+            messageBox.textContent = text;
+            messageBox.className = textClass;
+        }
+
+        function startGame() {
+            gameActive = true;
+            freeSlapIncoming = false;
+            startButton.style.display = 'none';
+            dodgeButton.disabled = false;
+            prepareOpponentTurn();
+        }
+
+        function prepareOpponentTurn() {
+            if (!gameActive) return;
+
+            updateGameState('idle', "Sua vez de defender...");
+            dodgeButton.disabled = false;
+            isOpponentAttacking = false;
+            isOpponentFaking = false;
+
+            if (freeSlapIncoming) {
+                updateGameState('idle', "TAPA DE GRAÇA!", 'hit');
+                dodgeButton.disabled = true;
+                opponentActionTimeout = setTimeout(() => {
+                    updateGameState('hit', "Você levou um tapa!", 'hit');
+                    freeSlapIncoming = false;
+                    setTimeout(prepareOpponentTurn, 2000);
+                }, 1500);
+                return;
+            }
+
+            const delay = Math.random() * 2500 + 1000; // Delay aleatório de 1 a 3.5 segundos
+
+            opponentActionTimeout = setTimeout(() => {
+                if (Math.random() > 0.45) { // 55% chance de atacar
+                    performAttack();
+                } else { // 45% chance de fintar
+                    performFake();
+                }
+            }, delay);
+        }
+
+        function performAttack() {
+            isOpponentAttacking = true;
+            updateGameState('attack', "AGORA!", 'success');
+            
+            opponentActionTimeout = setTimeout(() => {
+                if (isOpponentAttacking) {
+                    gameActive = false;
+                    isOpponentAttacking = false;
+                    updateGameState('hit', "Você levou um tapa!", 'hit');
+                    dodgeButton.disabled = true;
+                    startButton.textContent = "Jogar Novamente";
+                    startButton.style.display = 'block';
+                }
+            }, 450); // Tempo de reação um pouco menor para ser desafiador
+        }
+
+        function performFake() {
+            isOpponentFaking = true;
+            updateGameState('fake', "...", 'fake');
+            
+            setTimeout(() => {
+                if (gameActive && isOpponentFaking) {
+                    isOpponentFaking = false;
+                    updateGameState('idle', "Ufa, foi só uma finta.");
+                    setTimeout(prepareOpponentTurn, 2000);
+                }
+            }, 1500);
+        }
+
+        function playerDodge() {
+            if (!gameActive) return;
+
+            clearTimeout(opponentActionTimeout);
+
+            if (isOpponentAttacking) {
+                // SUCESSO!
+                isOpponentAttacking = false;
+                gameActive = false;
+                updateGameState('dodge', "Você desviou!", 'success');
+                dodgeButton.disabled = true;
+                startButton.textContent = "Jogar Novamente";
+                startButton.style.display = 'block';
+            } else {
+                // ERRO! Caiu na finta
+                isOpponentFaking = false;
+                gameActive = true; 
+                freeSlapIncoming = true;
+                updateGameState('hit', "Caiu na finta!", 'hit');
+                dodgeButton.disabled = true;
+                setTimeout(prepareOpponentTurn, 2000);
+            }
+        }
+    </script>
+
+</body>
+</html>
