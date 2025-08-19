@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jogo de Tapa na Mão 3D</title>
+    <title>Jogo de Tapa na Mão 3D - Realista</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
-            overflow: hidden; /* Previne barras de rolagem */
-            background-color: #111;
+            overflow: hidden;
+            background-color: #333; /* Fundo um pouco mais claro */
         }
         #ui-container {
             position: absolute;
@@ -19,10 +19,11 @@
             width: 90%;
             max-width: 450px;
             text-align: center;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.6);
             padding: 20px;
             border-radius: 16px;
             backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
         }
         #message-box {
             font-size: 1.5em;
@@ -81,52 +82,89 @@
     <script>
         // --- CONFIGURAÇÃO DA CENA 3D ---
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        scene.background = new THREE.Color(0x2d3436);
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
         
         const canvasContainer = document.getElementById('canvas-container');
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true; // Habilitar sombras
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         canvasContainer.appendChild(renderer.domElement);
 
-        // --- OBJETOS 3D (BRAÇOS) ---
-        const armGeometry = new THREE.BoxGeometry(4, 0.5, 2); // Largura, Altura, Profundidade
-        const opponentMaterial = new THREE.MeshStandardMaterial({ color: 0xff9c99, metalness: 0.3, roughness: 0.5 });
-        const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x007bff, metalness: 0.3, roughness: 0.5 });
+        // --- FUNÇÃO PARA CRIAR UMA MÃO ---
+        function createHand(color) {
+            const handGroup = new THREE.Group();
+            
+            const palmMaterial = new THREE.MeshStandardMaterial({ color: color, roughness: 0.7, metalness: 0.2 });
+            
+            // Palma da mão
+            const palmGeometry = new THREE.BoxGeometry(2, 0.25, 2.5);
+            const palm = new THREE.Mesh(palmGeometry, palmMaterial);
+            palm.castShadow = true;
+            palm.receiveShadow = true;
+            handGroup.add(palm);
 
-        const opponentArm = new THREE.Mesh(armGeometry, opponentMaterial);
-        const playerArm = new THREE.Mesh(armGeometry, playerMaterial);
+            // Dedos
+            const fingerGeometry = new THREE.CapsuleGeometry(0.2, 1, 16, 32);
+            for (let i = 0; i < 4; i++) {
+                const finger = new THREE.Mesh(fingerGeometry, palmMaterial);
+                finger.castShadow = true;
+                finger.position.set(-0.75 + i * 0.5, 0, -1.7);
+                finger.rotation.x = Math.PI / 2;
+                handGroup.add(finger);
+            }
+            
+            return handGroup;
+        }
+
+        const opponentHand = createHand(0xff8a80); // Cor avermelhada
+        const playerHand = createHand(0x80a8ff);   // Cor azulada
         
-        const initialPlayerPos = { x: 0, y: -0.5, z: 0 };
-        const initialOpponentPos = { x: 0, y: 0.5, z: 0 };
+        const initialPlayerPos = { x: 0, y: -0.2, z: 0 };
+        const initialOpponentPos = { x: 0, y: 0.2, z: 0 };
 
-        opponentArm.position.set(initialOpponentPos.x, initialOpponentPos.y, initialOpponentPos.z);
-        playerArm.position.set(initialPlayerPos.x, initialPlayerPos.y, initialPlayerPos.z);
+        opponentHand.position.set(initialOpponentPos.x, initialOpponentPos.y, initialOpponentPos.z);
+        opponentHand.rotation.x = Math.PI; // Vira a mão do oponente de cabeça para baixo
+        playerHand.position.set(initialPlayerPos.x, initialPlayerPos.y, initialPlayerPos.z);
         
-        scene.add(opponentArm);
-        scene.add(playerArm);
+        scene.add(opponentHand);
+        scene.add(playerHand);
 
-        // --- ILUMINAÇÃO ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(5, 10, 7.5);
-        scene.add(directionalLight);
+        // --- CHÃO/PLANO DE FUNDO ---
+        const planeGeometry = new THREE.PlaneGeometry(20, 20);
+        const planeMaterial = new THREE.ShadowMaterial({ opacity: 0.3 }); // Material que só recebe sombras
+        const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.y = -1.5;
+        plane.receiveShadow = true;
+        scene.add(plane);
+
+        // --- ILUMINAÇÃO APRIMORADA ---
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+        scene.add(hemiLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(5, 5, 5);
+        dirLight.castShadow = true;
+        dirLight.shadow.camera.top = 4;
+        dirLight.shadow.camera.bottom = -4;
+        dirLight.shadow.camera.left = -4;
+        dirLight.shadow.camera.right = 4;
+        dirLight.shadow.camera.near = 0.1;
+        dirLight.shadow.camera.far = 40;
+        scene.add(dirLight);
 
         // --- CÂMERA ---
-        camera.position.z = 5;
-        camera.position.y = 2;
+        camera.position.set(0, 3, 6);
         camera.lookAt(0, 0, 0);
 
-        // --- LÓGICA DO JOGO ---
+        // --- LÓGICA DO JOGO (IDÊNTICA À ANTERIOR) ---
         const startButton = document.getElementById('start-button');
         const dodgeButton = document.getElementById('dodge-button');
         const messageBox = document.getElementById('message-box');
 
-        let gameActive = false;
-        let isOpponentAttacking = false;
-        let isOpponentFaking = false;
-        let freeSlapIncoming = false;
+        let gameActive = false, isOpponentAttacking = false, isOpponentFaking = false, freeSlapIncoming = false;
         let opponentActionTimeout;
 
         startButton.addEventListener('click', startGame);
@@ -137,24 +175,28 @@
             messageBox.className = className;
         }
 
-        // --- ANIMAÇÕES 3D com GSAP ---
-        function resetArmPositions() {
-            gsap.to(playerArm.position, { ...initialPlayerPos, duration: 0.3 });
-            gsap.to(opponentArm.position, { ...initialOpponentPos, duration: 0.3 });
+        // --- ANIMAÇÕES 3D (ATUALIZADAS PARA AS MÃOS) ---
+        function resetHandPositions() {
+            gsap.to(playerHand.position, { ...initialPlayerPos, duration: 0.3 });
+            gsap.to(opponentHand.position, { ...initialOpponentPos, duration: 0.3 });
         }
 
         function animateAttack() {
-            gsap.to(opponentArm.position, { y: initialPlayerPos.y, duration: 0.12, ease: 'power2.out' });
+            gsap.to(opponentHand.position, { y: initialPlayerPos.y + 0.1, duration: 0.1, ease: 'power2.out' });
         }
 
         function animateFake() {
             const tl = gsap.timeline();
-            tl.to(opponentArm.position, { y: 0, duration: 0.1, ease: 'power1.out' })
-              .to(opponentArm.position, { y: initialOpponentPos.y, duration: 0.2, ease: 'bounce.out' });
+            tl.to(opponentHand.position, { y: 0, duration: 0.1, ease: 'power1.out' })
+              .to(opponentHand.position, { y: initialOpponentPos.y, duration: 0.3, ease: 'bounce.out' });
         }
         
         function animateDodge() {
-             gsap.to(playerArm.position, { x: -6, duration: 0.2, ease: 'power2.out' });
+             gsap.to(playerHand.position, { x: -4, duration: 0.15, ease: 'power2.out' });
+        }
+        
+        function animateCameraShake() {
+            gsap.to(camera.position, { x: '+=0.1', yoyo: true, repeat: 3, duration: 0.05 });
         }
 
         // --- FUNÇÕES PRINCIPAIS DO JOGO ---
@@ -163,7 +205,7 @@
             freeSlapIncoming = false;
             startButton.style.display = 'none';
             dodgeButton.disabled = false;
-            resetArmPositions();
+            resetHandPositions();
             prepareOpponentTurn();
         }
 
@@ -174,13 +216,14 @@
             dodgeButton.disabled = false;
             isOpponentAttacking = false;
             isOpponentFaking = false;
-            resetArmPositions();
+            resetHandPositions();
 
             if (freeSlapIncoming) {
                 updateMessage("TAPA DE GRAÇA!", 'hit');
                 dodgeButton.disabled = true;
                 opponentActionTimeout = setTimeout(() => {
                     animateAttack();
+                    animateCameraShake();
                     updateMessage("Você levou um tapa!", 'hit');
                     freeSlapIncoming = false;
                     setTimeout(prepareOpponentTurn, 2000);
@@ -188,14 +231,11 @@
                 return;
             }
 
-            const delay = Math.random() * 2500 + 1000;
+            const delay = Math.random() * 2500 + 1200;
 
             opponentActionTimeout = setTimeout(() => {
-                if (Math.random() > 0.5) {
-                    performAttack();
-                } else {
-                    performFake();
-                }
+                if (Math.random() > 0.5) { performAttack(); } 
+                else { performFake(); }
             }, delay);
         }
 
@@ -208,12 +248,13 @@
                 if (isOpponentAttacking) {
                     gameActive = false;
                     isOpponentAttacking = false;
+                    animateCameraShake();
                     updateMessage("Você levou um tapa!", 'hit');
                     dodgeButton.disabled = true;
                     startButton.textContent = "Jogar Novamente";
                     startButton.style.display = 'block';
                 }
-            }, 350); // Tempo de reação
+            }, 400); // Tempo de reação
         }
 
         function performFake() {
